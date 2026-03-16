@@ -1,0 +1,13 @@
+portals:
+  - id: goiania
+    nome: Prefeitura de Goiânia
+    estado: GO
+    url_base: https://www.goiania.go.gov.br/shtml//portal/casacivil/lista_diarios.asp
+    encoding: windows-1252
+    anos_disponiveis: [2020, 2021, 2022, 2023, 2024, 2025]
+
+  # Para adicionar novo município:
+  # - id: aparecida
+  #   nome: Prefeitura de Aparecida de Goiânia
+  #   estado: GO
+  #   url_base: https://...
