@@ -1,4 +1,4 @@
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.diario import Diario
 from app.schemas.diario import DiarioCreate, DiarioUpdate
@@ -49,3 +49,7 @@ class DiarioRepository:
         if existing:
             return existing
         return await self.create(data)
+
+    async def clear_all(self) -> None:
+        await self.db.execute(text("TRUNCATE TABLE diarios RESTART IDENTITY"))
+        await self.db.commit()

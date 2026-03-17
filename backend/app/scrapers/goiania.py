@@ -44,7 +44,8 @@ class GoianiaScraper(BaseScraper):
             href = link.get("href", "")
             pdf_url = href if href.startswith("http") else f"https://www.goiania.go.gov.br{href}"
             nome_arquivo = pdf_url.split("/")[-1]
-            edicao, data_edicao, tipo = self._parsear_nome(nome_arquivo)
+            texto_link = link.get_text(" ", strip=True)
+            edicao, data_edicao, tipo = self._parsear_nome(nome_arquivo, texto_link)
 
             diarios.append(DiarioRaw(
                 portal=self.portal_id,
@@ -61,7 +62,7 @@ class GoianiaScraper(BaseScraper):
     # ── helpers ──────────────────────────────────────────────────────────────
 
     @staticmethod
-    def _parsear_nome(nome: str) -> tuple[str, date, str]:
+    def _parsear_nome(nome: str, texto_link: str = "") -> tuple[str, date, str]:
         """
         Extrai edição, data e tipo do nome do arquivo.
         Padrão: do_YYYYMMDD_000008691.pdf
@@ -72,11 +73,48 @@ class GoianiaScraper(BaseScraper):
         partes = base.split("_")
 
         data_edicao: date = datetime.today().date()
+        data_no_nome_valida = False
+
+        # Prioridade 1: data no nome do arquivo (do_YYYYMMDD_...)
         if len(partes) > 1:
             try:
                 data_edicao = datetime.strptime(partes[1], "%Y%m%d").date()
+                data_no_nome_valida = True
             except ValueError:
                 pass
+
+        # Prioridade 2: data no texto do link (somente se a do nome não existir/for inválida)
+        if not data_no_nome_valida and texto_link:
+            meses = {
+                "janeiro": 1,
+                "fevereiro": 2,
+                "marco": 3,
+                "março": 3,
+                "abril": 4,
+                "maio": 5,
+                "junho": 6,
+                "julho": 7,
+                "agosto": 8,
+                "setembro": 9,
+                "outubro": 10,
+                "novembro": 11,
+                "dezembro": 12,
+            }
+            m = re.search(
+                r"(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})",
+                texto_link.lower(),
+                flags=re.IGNORECASE,
+            )
+            if m:
+                dia = int(m.group(1))
+                mes_nome = m.group(2)
+                ano = int(m.group(3))
+                mes = meses.get(mes_nome)
+                if mes:
+                    try:
+                        data_edicao = date(ano, mes, dia)
+                    except ValueError:
+                        pass
 
         edicao = str(int(partes[2])) if len(partes) > 2 else ""
 

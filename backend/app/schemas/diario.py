@@ -37,3 +37,16 @@ class DiarioResponse(DiarioBase):
 class DiarioListResponse(BaseModel):
     total:  int
     items:  list[DiarioResponse]
+
+
+class SincronizacaoProgressoResponse(BaseModel):
+    portal: str
+    ano: int
+    total: int
+    processados: int
+    ok: int
+    erros: int
+    pendentes: int
+    progresso: int
+    status: str
+    mensagem: str | None = None
