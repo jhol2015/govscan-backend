@@ -19,9 +19,17 @@ def test_parsear_nome_suplemento():
     assert tipo == "Suplemento"
 
 
-def test_prioriza_data_do_nome_sobre_texto_do_link():
+def test_prioriza_data_do_texto_sobre_nome_do_arquivo():
     _, data, _ = GoianiaScraper._parsear_nome(
         "do_20241231_000008447_edi.pdf",
         "Edicao n 8447 de 01 de janeiro de 2025 - Edicao Extra",
     )
-    assert data == date(2024, 12, 31)
+    assert data == date(2025, 1, 1)
+
+
+def test_data_texto_com_ordinal_no_dia():
+    _, data, _ = GoianiaScraper._parsear_nome(
+        "do_20241231_000008447_edi.pdf",
+        "Edição n° 8447 de 1º de janeiro de 2025 - Edição Extra",
+    )
+    assert data == date(2025, 1, 1)

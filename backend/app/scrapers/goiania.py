@@ -3,6 +3,7 @@ Scraper do portal de Diários Oficiais da Prefeitura de Goiânia.
 URL: https://www.goiania.go.gov.br/shtml//portal/casacivil/lista_diarios.asp?ano=YYYY
 """
 import re
+import unicodedata
 from datetime import datetime, date
 
 import requests
@@ -62,6 +63,49 @@ class GoianiaScraper(BaseScraper):
     # ── helpers ──────────────────────────────────────────────────────────────
 
     @staticmethod
+    def _normalizar_texto(texto: str) -> str:
+        sem_acentos = "".join(
+            ch for ch in unicodedata.normalize("NFD", texto)
+            if unicodedata.category(ch) != "Mn"
+        )
+        sem_ordinais = re.sub(r"(\d{1,2})\s*[º°o]\b", r"\1", sem_acentos, flags=re.IGNORECASE)
+        return re.sub(r"\s+", " ", sem_ordinais).strip().lower()
+
+    @staticmethod
+    def _extrair_data_do_texto(texto_link: str) -> date | None:
+        meses = {
+            "janeiro": 1,
+            "fevereiro": 2,
+            "marco": 3,
+            "abril": 4,
+            "maio": 5,
+            "junho": 6,
+            "julho": 7,
+            "agosto": 8,
+            "setembro": 9,
+            "outubro": 10,
+            "novembro": 11,
+            "dezembro": 12,
+        }
+
+        normalizado = GoianiaScraper._normalizar_texto(texto_link)
+        m = re.search(r"(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})", normalizado)
+        if not m:
+            return None
+
+        dia = int(m.group(1))
+        mes_nome = m.group(2)
+        ano = int(m.group(3))
+        mes = meses.get(mes_nome)
+        if not mes:
+            return None
+
+        try:
+            return date(ano, mes, dia)
+        except ValueError:
+            return None
+
+    @staticmethod
     def _parsear_nome(nome: str, texto_link: str = "") -> tuple[str, date, str]:
         """
         Extrai edição, data e tipo do nome do arquivo.
@@ -73,48 +117,18 @@ class GoianiaScraper(BaseScraper):
         partes = base.split("_")
 
         data_edicao: date = datetime.today().date()
-        data_no_nome_valida = False
 
-        # Prioridade 1: data no nome do arquivo (do_YYYYMMDD_...)
-        if len(partes) > 1:
+        # Prioridade 1: data do texto apresentado no portal.
+        data_texto = GoianiaScraper._extrair_data_do_texto(texto_link) if texto_link else None
+        if data_texto:
+            data_edicao = data_texto
+
+        # Prioridade 2: data no nome do arquivo (fallback).
+        if not data_texto and len(partes) > 1:
             try:
                 data_edicao = datetime.strptime(partes[1], "%Y%m%d").date()
-                data_no_nome_valida = True
             except ValueError:
                 pass
-
-        # Prioridade 2: data no texto do link (somente se a do nome não existir/for inválida)
-        if not data_no_nome_valida and texto_link:
-            meses = {
-                "janeiro": 1,
-                "fevereiro": 2,
-                "marco": 3,
-                "março": 3,
-                "abril": 4,
-                "maio": 5,
-                "junho": 6,
-                "julho": 7,
-                "agosto": 8,
-                "setembro": 9,
-                "outubro": 10,
-                "novembro": 11,
-                "dezembro": 12,
-            }
-            m = re.search(
-                r"(\d{1,2})\s+de\s+([a-zç]+)\s+de\s+(\d{4})",
-                texto_link.lower(),
-                flags=re.IGNORECASE,
-            )
-            if m:
-                dia = int(m.group(1))
-                mes_nome = m.group(2)
-                ano = int(m.group(3))
-                mes = meses.get(mes_nome)
-                if mes:
-                    try:
-                        data_edicao = date(ano, mes, dia)
-                    except ValueError:
-                        pass
 
         edicao = str(int(partes[2])) if len(partes) > 2 else ""
 
